@@ -79,4 +79,4 @@ target_link_options(NarutoSenki PRIVATE ${PORTS} -O2
   "SHELL:--preload-file ${DATA_ROOT}/Resources@/Resources"
   "SHELL:--preload-file ${DATA_ROOT}/lua@/lua")
 target_link_libraries(NarutoSenki ${CCWASM_EXTERNAL}/lua/luajit/prebuilt/emscripten/liblua.a)
-set_target_properties(NarutoSenki PROPERTIES OUTPUT_NAME index SUFFIX ".html")
+set_target_properties(NarutoSenki PROPERTIES OUTPUT_NAME NarutoSenki SUFFIX ".html")

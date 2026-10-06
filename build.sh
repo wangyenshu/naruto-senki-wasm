@@ -9,7 +9,7 @@
 #   - the browser main loop, IDBFS writable path and canvas text rendering,
 #     ported into naruto-senki-web.patch
 #
-# Usage:   ./build.sh            -> dist/index.{html,js,wasm,data}
+# Usage:   ./build.sh            -> dist/index.html + NarutoSenki.{js,wasm,data}
 #          python3 -m http.server -d dist 8080
 # Env:     WORK=dir  OUT=dir  JOBS=n  DEBUG=1 (keeps CCLOG / Lua print output)
 #          NS_REF / CCW_REF to build other commits, EMSDK_VERSION to change emsdk
@@ -96,7 +96,8 @@ emcmake cmake -S "$HERE" -B "$WORK/build" -G "$GEN" \
 cmake --build "$WORK/build" -j "$JOBS"
 
 mkdir -p "$OUT"
-cp "$WORK/build"/index.html "$WORK/build"/index.js "$WORK/build"/index.wasm "$WORK/build"/index.data "$OUT"/
+cp "$WORK/build"/NarutoSenki.html "$OUT"/index.html
+cp "$WORK/build"/NarutoSenki.js "$WORK/build"/NarutoSenki.wasm "$WORK/build"/NarutoSenki.data "$OUT"/
 log "done: $OUT"
 ls -lh "$OUT"
 echo "serve it, e.g.: python3 -m http.server -d \"$OUT\" 8080"

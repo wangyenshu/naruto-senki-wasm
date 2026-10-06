@@ -1,0 +1,235 @@
+diff --git a/cocos2dx/misc_nodes/CCClippingNode.cpp b/cocos2dx/misc_nodes/CCClippingNode.cpp
+index 68f150a..4b9d0fa 100644
+--- a/cocos2dx/misc_nodes/CCClippingNode.cpp
++++ b/cocos2dx/misc_nodes/CCClippingNode.cpp
+@@ -272,13 +272,13 @@ void CCClippingNode::visit()
+     
+     // enable alpha test only if the alpha threshold < 1,
+     // indeed if alpha threshold == 1, every pixel will be drawn anyways
+-#if (CC_TARGET_PLATFORM == CC_PLATFORM_MAC || CC_TARGET_PLATFORM == CC_PLATFORM_WINDOWS || CC_TARGET_PLATFORM == CC_PLATFORM_LINUX)
++#if (CC_TARGET_PLATFORM == CC_PLATFORM_MAC || CC_TARGET_PLATFORM == CC_PLATFORM_WINDOWS || CC_TARGET_PLATFORM == CC_PLATFORM_LINUX) && !defined(__EMSCRIPTEN__)
+     GLboolean currentAlphaTestEnabled = GL_FALSE;
+     GLenum currentAlphaTestFunc = GL_ALWAYS;
+     GLclampf currentAlphaTestRef = 1;
+ #endif
+     if (m_fAlphaThreshold < 1) {
+-#if (CC_TARGET_PLATFORM == CC_PLATFORM_MAC || CC_TARGET_PLATFORM == CC_PLATFORM_WINDOWS || CC_TARGET_PLATFORM == CC_PLATFORM_LINUX)
++#if (CC_TARGET_PLATFORM == CC_PLATFORM_MAC || CC_TARGET_PLATFORM == CC_PLATFORM_WINDOWS || CC_TARGET_PLATFORM == CC_PLATFORM_LINUX) && !defined(__EMSCRIPTEN__)
+         // manually save the alpha test state
+         currentAlphaTestEnabled = glIsEnabled(GL_ALPHA_TEST);
+         glGetIntegerv(GL_ALPHA_TEST_FUNC, (GLint *)&currentAlphaTestFunc);
+@@ -314,7 +314,7 @@ void CCClippingNode::visit()
+     // restore alpha test state
+     if (m_fAlphaThreshold < 1)
+     {
+-#if (CC_TARGET_PLATFORM == CC_PLATFORM_MAC || CC_TARGET_PLATFORM == CC_PLATFORM_WINDOWS || CC_TARGET_PLATFORM == CC_PLATFORM_LINUX)
++#if (CC_TARGET_PLATFORM == CC_PLATFORM_MAC || CC_TARGET_PLATFORM == CC_PLATFORM_WINDOWS || CC_TARGET_PLATFORM == CC_PLATFORM_LINUX) && !defined(__EMSCRIPTEN__)
+         // manually restore the alpha test state
+         glAlphaFunc(currentAlphaTestFunc, currentAlphaTestRef);
+         if (!currentAlphaTestEnabled)
+diff --git a/cocos2dx/platform/linux/CCApplication.cpp b/cocos2dx/platform/linux/CCApplication.cpp
+index ed38f33..07cc0a4 100644
+--- a/cocos2dx/platform/linux/CCApplication.cpp
++++ b/cocos2dx/platform/linux/CCApplication.cpp
+@@ -11,6 +11,10 @@
+ #include "CCDirector.h"
+ #include "platform/CCFileUtils.h"
+ #include "glfw3.h"
++#ifdef __EMSCRIPTEN__
++#include <emscripten/emscripten.h>
++static void mainLoopIter() { cocos2d::CCDirector::sharedDirector()->mainLoop(); }
++#endif
+ 
+ NS_CC_BEGIN
+ 
+@@ -47,6 +51,9 @@ int CCApplication::run()
+ 	{
+ 		return 0;
+ 	}
++#ifdef __EMSCRIPTEN__
++	emscripten_set_main_loop(mainLoopIter, 0, 1);
++#endif
+ 
+ 	for (;;)
+ 	{
+diff --git a/cocos2dx/platform/linux/CCDevice.cpp b/cocos2dx/platform/linux/CCDevice.cpp
+index 4c81d29..47c96b5 100644
+--- a/cocos2dx/platform/linux/CCDevice.cpp
++++ b/cocos2dx/platform/linux/CCDevice.cpp
+@@ -6,6 +6,9 @@ NS_CC_BEGIN
+ 
+ int CCDevice::getDPI()
+ {
++#ifdef __EMSCRIPTEN__
++	return 160;
++#endif
+ 	static int dpi = -1;
+ 	if (dpi == -1)
+ 	{
+diff --git a/cocos2dx/platform/linux/CCEGLView.cpp b/cocos2dx/platform/linux/CCEGLView.cpp
+index 974744e..ac1bb9f 100644
+--- a/cocos2dx/platform/linux/CCEGLView.cpp
++++ b/cocos2dx/platform/linux/CCEGLView.cpp
+@@ -14,6 +14,7 @@
+ #include "touch_dispatcher/CCTouchDispatcher.h"
+ #include "text_input_node/CCIMEDispatcher.h"
+ 
++#ifndef __EMSCRIPTEN__
+ PFNGLGENFRAMEBUFFERSEXTPROC glGenFramebuffersEXT = NULL;
+ PFNGLDELETEFRAMEBUFFERSEXTPROC glDeleteFramebuffersEXT = NULL;
+ PFNGLBINDFRAMEBUFFEREXTPROC glBindFramebufferEXT = NULL;
+@@ -78,6 +79,7 @@ bool initExtensions()
+ 	} while (0);
+ 	return bRet;
+ }
++#endif
+ 
+ NS_CC_BEGIN
+ 
+@@ -233,6 +235,7 @@ void CCEGLView::setFrameSize(float width, float height)
+ 	// m_window = glfwCreateWindow(width, height, "", _monitor, NULL);
+ 	m_window = glfwCreateWindow(width, height, "", NULL, NULL);
+ 
++#ifndef __EMSCRIPTEN__ // no monitor/video mode in the browser
+ 	// Set center windwo
+ 	GLFWmonitor *monitor = glfwGetPrimaryMonitor();
+ 	if (nullptr == monitor)
+@@ -251,6 +254,7 @@ void CCEGLView::setFrameSize(float width, float height)
+ 	glfwSetWindowPos(m_window,
+ 					 monitorX + (mode->width - windowWidth) / 2,
+ 					 monitorY + (mode->height - windowHeight) * 0.35f);
++#endif
+ 
+ 	/* Success? */
+ 	if (m_window)
+@@ -338,6 +342,9 @@ void CCEGLView::setIMEKeyboardState(bool bOpen)
+ 
+ bool CCEGLView::initGL()
+ {
++#ifdef __EMSCRIPTEN__
++	return true; // WebGL context comes from glfwCreateWindow; no GLEW/version checks
++#endif
+ 	// check OpenGL version at first
+ 	const GLubyte *glVersion = glGetString(GL_VERSION);
+ 
+diff --git a/cocos2dx/platform/linux/CCFileUtilsLinux.cpp b/cocos2dx/platform/linux/CCFileUtilsLinux.cpp
+index 37f4c1c..66a225d 100644
+--- a/cocos2dx/platform/linux/CCFileUtilsLinux.cpp
++++ b/cocos2dx/platform/linux/CCFileUtilsLinux.cpp
+@@ -34,6 +34,11 @@ CCFileUtilsLinux::CCFileUtilsLinux()
+ 
+ bool CCFileUtilsLinux::init()
+ {
++#ifdef __EMSCRIPTEN__
++    m_strDefaultResRootPath = "/Resources/";
++    m_writablePath = "/cocos2dxWritablePath/";
++    return CCFileUtils::init();
++#endif
+     // get application path
+     char fullpath[256] = {0};
+     ssize_t length = readlink("/proc/self/exe", fullpath, sizeof(fullpath) - 1);
+diff --git a/cocos2dx/platform/linux/CCImage.cpp b/cocos2dx/platform/linux/CCImage.cpp
+index 6c59bf5..79c01dd 100644
+--- a/cocos2dx/platform/linux/CCImage.cpp
++++ b/cocos2dx/platform/linux/CCImage.cpp
+@@ -4,7 +4,9 @@
+ #include <vector>
+ #include <string>
+ #include <sstream>
++#ifndef __EMSCRIPTEN__
+ #include <fontconfig/fontconfig.h>
++#endif
+ 
+ #include "platform/CCFileUtils.h"
+ #include "platform/CCPlatformMacros.h"
+@@ -13,6 +15,72 @@
+ #include "platform/CCImage.h"
+ #include "platform/linux/CCApplication.h"
+ 
++#ifdef __EMSCRIPTEN__
++#include <emscripten/emscripten.h>
++
++// Text is drawn by the browser's 2D canvas (white, premultiplied like the
++// freetype path below), adapted from cocos2d-x-wasm's
++// Device::getTextureDataForText in platform/emscripten/CCDevice-emscripten.cpp.
++EM_JS(int, cc_text_render, (const char *text, const char *name, int size, int dimW, int dimH, int align, int *outH), {
++	var c = Module.ccTextCanvas = Module.ccTextCanvas || document.createElement('canvas');
++	var ctx = c.getContext('2d', { willReadFrequently: true });
++	var font = size + 'px "' + UTF8ToString(name) + '", sans-serif';
++	var lineH = Math.ceil(size * 1.2);
++	var lines = [];
++	ctx.font = font;
++	UTF8ToString(text).split('\n').forEach(function (s) {
++		var cur = '';
++		Array.from(s).forEach(function (ch) {
++			if (dimW > 0 && cur && ctx.measureText(cur + ch).width > dimW) { lines.push(cur); cur = ''; }
++			cur += ch;
++		});
++		lines.push(cur);
++	});
++	var widths = lines.map(function (s) { return ctx.measureText(s).width; });
++	var w = Math.max(1, dimW > 0 ? dimW : Math.ceil(Math.max.apply(null, widths)));
++	var h = Math.max(1, dimH > 0 ? dimH : lineH * lines.length);
++	var y = 0;
++	if ((align & 0xf0) == 0x30) y = (h - lineH * lines.length) / 2;
++	else if ((align & 0xf0) == 0x20) y = h - lineH * lines.length;
++	c.width = w; c.height = h;
++	ctx.font = font; ctx.fillStyle = '#fff'; ctx.textBaseline = 'top';
++	lines.forEach(function (s, i) {
++		var x = 0;
++		if ((align & 0x0f) == 0x03) x = (w - widths[i]) / 2;
++		else if ((align & 0x0f) == 0x02) x = w - widths[i];
++		ctx.fillText(s, x, y + lineH * i);
++	});
++	HEAP32[outH >> 2] = h;
++	return w;
++});
++
++EM_JS(void, cc_text_copy, (unsigned char *dst), {
++	var c = Module.ccTextCanvas;
++	var d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data;
++	for (var i = 3; i < d.length; i += 4)
++		HEAPU8[dst + i - 3] = HEAPU8[dst + i - 2] = HEAPU8[dst + i - 1] = HEAPU8[dst + i] = d[i];
++});
++
++NS_CC_BEGIN
++
++bool CCImage::initWithString(const char *pText, int nWidth, int nHeight, ETextAlign eAlignMask, const char *pFontName, int nSize)
++{
++	if (!pText)
++		return false;
++	int h = 0;
++	int w = cc_text_render(pText, pFontName ? pFontName : "Arial", nSize, nWidth, nHeight, eAlignMask, &h);
++	m_pData = new unsigned char[w * h * 4];
++	cc_text_copy(m_pData);
++	m_nWidth = (short)w;
++	m_nHeight = (short)h;
++	m_bHasAlpha = true;
++	m_bPreMulti = true;
++	m_nBitsPerComponent = 8;
++	return true;
++}
++
++NS_CC_END
++#else
+ #include "ft2build.h"
+ #include "CCStdC.h"
+ 
+@@ -463,3 +531,4 @@ bool CCImage::initWithString(
+ }
+ 
+ NS_CC_END
++#endif // __EMSCRIPTEN__
+diff --git a/cocos2dx/shaders/CCGLProgram.cpp b/cocos2dx/shaders/CCGLProgram.cpp
+index 0424f08..923c635 100644
+--- a/cocos2dx/shaders/CCGLProgram.cpp
++++ b/cocos2dx/shaders/CCGLProgram.cpp
+@@ -149,7 +149,7 @@ bool CCGLProgram::compileShader(GLuint * shader, GLenum type, const GLchar* sour
+     }
+     
+     const GLchar *sources[] = {
+-#if (CC_TARGET_PLATFORM != CC_PLATFORM_WIN32 && CC_TARGET_PLATFORM != CC_PLATFORM_LINUX && CC_TARGET_PLATFORM != CC_PLATFORM_MAC)
++#if (CC_TARGET_PLATFORM != CC_PLATFORM_WIN32 && CC_TARGET_PLATFORM != CC_PLATFORM_LINUX && CC_TARGET_PLATFORM != CC_PLATFORM_MAC) || defined(__EMSCRIPTEN__)
+         (type == GL_VERTEX_SHADER ? "precision highp float;\n" : "precision mediump float;\n"),
+ #endif
+         "uniform mat4 CC_PMatrix;\n"

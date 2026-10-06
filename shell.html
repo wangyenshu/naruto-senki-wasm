@@ -1,0 +1,21 @@
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>Naruto Senki</title></head>
+<body>
+<canvas id="canvas"></canvas>
+<script>
+var Module = {
+  canvas: document.getElementById('canvas'),
+  preRun: [function () {
+    // writable path as in cocos2d-x-wasm, persisted to IndexedDB
+    FS.mkdir('/cocos2dxWritablePath');
+    FS.mount(IDBFS, {}, '/cocos2dxWritablePath');
+    addRunDependency('idbfs');
+    FS.syncfs(true, function () { removeRunDependency('idbfs'); });
+    setInterval(function () { FS.syncfs(false, function () {}); }, 5000);
+  }]
+};
+</script>
+{{{ SCRIPT }}}
+</body>
+</html>
